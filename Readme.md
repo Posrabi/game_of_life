@@ -1,8 +1,6 @@
-### Game of life simulator
+# Game of life simulator
 
----
-
-# How to run
+### How to run
 
 You need to have opencv4 installed, then run
 
@@ -16,7 +14,7 @@ That's it, all you need to do now is run
 ./main
 ```
 
-# TODO
+### TODO
 
 - Increase the resolution of the simulator, currently it's doing a digital zoom on a 100 x 100 image.
 - Try out more god functions
