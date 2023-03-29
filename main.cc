@@ -13,7 +13,7 @@ int main() {
     } else if (neighbors == 3) // dead but has exactly 3 neighbors live
       return LIVE;
 
-    return DEAD; // should never take this path
+    return DEAD;
   };
 
   Board::GodFunction god_fn_1 = [](unsigned int neighbors,
@@ -26,7 +26,7 @@ int main() {
     } else if (neighbors == 2)
       return LIVE;
 
-    return DEAD; // should never take this path
+    return DEAD;
   };
 
   Board::GodFunction god_fn_2 = [](unsigned int neighbors,
@@ -35,8 +35,8 @@ int main() {
       if (neighbors >= 1)
         return LIVE;
 
-      return DEAD;             // greater than 3 die
-    } else if (neighbors == 1) // dead but has exactly 3 neighbors live
+      return DEAD;
+    } else if (neighbors == 1)
       return LIVE;
 
     return DEAD; // should never take this path
@@ -48,10 +48,14 @@ int main() {
       {13, 8},  {14, 8},  {10, 7},  {11, 7},  {10, 6}, {11, 6},
       {11, 5},  {12, 5},  {11, 4},  {12, 4}};
 
+  std::cout << "Iteration beginning, press 'q' on the pop-up screen to stop, "
+               "max iteration: 500\n";
+
   auto board = Board(start_positions);
   for (unsigned int i{0}; i < 500; ++i) {
     if (board.print() == 'q')
       break;
+
     std::cout << "Iteration: " << i << "\n";
     board.run(god_fn_2);
   }
