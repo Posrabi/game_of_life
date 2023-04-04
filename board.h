@@ -12,9 +12,6 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-static constexpr int ROWS = 100;
-static constexpr int COLS = 100;
-
 using State = unsigned int;
 static constexpr State LIVE = 1;
 static constexpr State DEAD = 0;
@@ -23,23 +20,28 @@ static constexpr std::array<std::pair<int, int>, 8> NEIGHBOR_OFFSETS{
 
 class Board {
 public:
-  Board(std::vector<std::pair<int, int>> &live_positions) {
-    cells = {};
+  Board(size_t n, std::vector<std::pair<int, int>> &live_positions) {
+    cells.resize(n);
+    for (auto &row : cells)
+      row.resize(n);
+
     for (auto &[x, y] : live_positions)
       cells[x][y] = LIVE;
   }
 
   using Cell = char;
-  using Cells = std::array<std::array<Cell, COLS>, ROWS>;
+  using Cells = std::vector<std::vector<Cell>>;
   using GodFunction =
       std::function<State(unsigned int neighbors, State current_state)>;
 
   void run(GodFunction god_fn) {
-    Cells tmp = {};
+    Cells tmp(cells.size());
+    for (auto &row : tmp)
+      row.resize(cells.size());
 
     // Store new state into tmp board
-    for (int i{0}; i < ROWS; ++i)
-      for (int j{0}; j < COLS; ++j)
+    for (int i{0}; i < cells.size(); ++i)
+      for (int j{0}; j < cells.size(); ++j)
         tmp[i][j] = god_fn(countLiveNeighbors(i, j), cells[i][j]);
 
     cells = tmp;
@@ -49,16 +51,16 @@ public:
     unsigned int ret{0};
     for (auto const &[row_off, col_off] : NEIGHBOR_OFFSETS) {
       auto neighbor_r = row + row_off;
-      if (neighbor_r >= ROWS)
+      if (neighbor_r >= cells.size())
         neighbor_r = 0;
       else if (neighbor_r < 0)
-        neighbor_r = 99;
+        neighbor_r = cells.size() - 1;
 
       auto neighbor_c = col + col_off;
-      if (neighbor_c >= COLS)
+      if (neighbor_c >= cells.size())
         neighbor_c = 0;
       else if (neighbor_c < 0)
-        neighbor_c = 99;
+        neighbor_c = cells.size() - 1;
 
       if (cells[neighbor_r][neighbor_c] == LIVE)
         ++ret;
@@ -68,16 +70,16 @@ public:
   }
 
   int print() {
-    cv::Mat plot(ROWS, COLS, CV_8U, 255);
-    for (unsigned int i{0}; i < ROWS; i++)
-      for (unsigned int j{0}; j < COLS; j++)
+    cv::Mat plot(cells.size(), cells.size(), CV_8U, 255);
+    for (unsigned int i{0}; i < cells.size(); i++)
+      for (unsigned int j{0}; j < cells.size(); j++)
         if (cells[i][j] == LIVE)
           plot.at<char>(i, j) = 0;
 
     cv::Mat out;
-    cv::resize(plot, out, cv::Size(), 6, 6); // 100x100 is a little too small
+    cv::resize(plot, out, cv::Size(), 2, 2); // 100x100 is a little too small
     cv::imshow("Board State", out);
-    return cv::waitKey(400);
+    return cv::waitKey(300);
   }
 
 private:

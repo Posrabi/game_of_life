@@ -51,7 +51,7 @@ int main() {
   std::cout << "Iteration beginning, press 'q' on the pop-up screen to stop, "
                "max iteration: 500\n";
 
-  auto board = Board(start_positions);
+  auto board = Board(256, start_positions);
   for (unsigned int i{0}; i < 500; ++i) {
     if (board.print() == 'q')
       break;
