@@ -4,7 +4,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
-#include <thread>
+#include <random>
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -20,13 +20,18 @@ static constexpr std::array<std::pair<int, int>, 8> NEIGHBOR_OFFSETS{
 
 class Board {
 public:
-  Board(size_t n, std::vector<std::pair<int, int>> &live_positions) {
+  Board(size_t n) {
     cells.resize(n);
     for (auto &row : cells)
       row.resize(n);
 
-    for (auto &[x, y] : live_positions)
-      cells[x][y] = LIVE;
+    std::default_random_engine generator(time(0));
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+    for (auto &row : cells)
+      for (auto &cell : row)
+        if (dist(generator) >= 0.5)
+          cell = LIVE;
   }
 
   using Cell = char;
@@ -79,8 +84,10 @@ public:
     cv::Mat out;
     cv::resize(plot, out, cv::Size(), 2, 2); // 100x100 is a little too small
     cv::imshow("Board State", out);
-    return cv::waitKey(300);
+    return cv::waitKey(0);
   }
+
+  void destroyWindow() { cv::destroyAllWindows(); }
 
 private:
   Cells cells;
