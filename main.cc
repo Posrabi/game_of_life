@@ -1,4 +1,5 @@
 #include "board.h"
+#include "board_optimized.h"
 #include <chrono>
 #include <opencv2/highgui.hpp>
 #include <unistd.h>
@@ -17,13 +18,17 @@ int main() {
     return DEAD;
   };
 
+  /*
+   ***************************** Step 1 ********************************
+   */
+
   std::cout << "Iteration beginning, count: 100, board size 256x256\n";
 
-  auto board = Board(256);
+  auto board_256 = Board(256);
 
   auto begin = std::chrono::steady_clock::now();
   for (unsigned int i{0}; i < 100; ++i) {
-    board.run(god_fn_0);
+    board_256.run(god_fn_0);
   }
   auto end = std::chrono::steady_clock::now();
 
@@ -34,16 +39,38 @@ int main() {
             << "[ms]"
             << "\n";
 
-  board.print();
-  board.destroyWindow();
+  auto board_optimized_256 = BoardOptimized<256>();
+
+  begin = std::chrono::steady_clock::now();
+  for (unsigned int i{0}; i < 100; ++i) {
+    board_optimized_256.run(god_fn_0);
+  }
+  end = std::chrono::steady_clock::now();
+
+  std::cout << "[OPTIMIZED] Elapsed: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                     begin)
+                   .count()
+            << "[ms]"
+            << "\n";
+
+  if (board_256.match(
+          [&](int i, int j) { return board_optimized_256.get_at(i, j); }))
+    std::cout << "States matched!\n";
+  else
+    std::cout << "States don't match!\n";
+
+  /*
+   ***************************** Step 2 ********************************
+   */
 
   std::cout << "Iteration beginning, count: 1000, board size 2048x2048\n";
 
-  board = Board(1000);
+  auto board_2048 = Board(2048);
 
   begin = std::chrono::steady_clock::now();
   for (unsigned int i{0}; i < 1000; ++i) {
-    board.run(god_fn_0);
+    board_2048.run(god_fn_0);
   }
   end = std::chrono::steady_clock::now();
 
@@ -54,6 +81,20 @@ int main() {
             << "[ms]"
             << "\n";
 
-  board.print();
-  board.destroyWindow();
+  auto board_optimized_2048 = BoardOptimized<2048>();
+
+  begin = std::chrono::steady_clock::now();
+  for (unsigned int i{0}; i < 1000; ++i) {
+    board_optimized_2048.run(god_fn_0);
+  }
+  end = std::chrono::steady_clock::now();
+
+  std::cout << "[OPTIMIZED] Elapsed: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                     begin)
+                   .count()
+            << "[ms]"
+            << "\n";
+
+  return 0;
 }

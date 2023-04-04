@@ -12,7 +12,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-using State = unsigned int;
+using State = char;
 static constexpr State LIVE = 1;
 static constexpr State DEAD = 0;
 static constexpr std::array<std::pair<int, int>, 8> NEIGHBOR_OFFSETS{
@@ -25,7 +25,7 @@ public:
     for (auto &row : cells)
       row.resize(n);
 
-    std::default_random_engine generator(time(0));
+    std::default_random_engine generator(0);
     std::uniform_real_distribution<double> dist(0.0, 1.0);
 
     for (auto &row : cells)
@@ -33,6 +33,7 @@ public:
         if (dist(generator) >= 0.5)
           cell = LIVE;
   }
+  ~Board() = default;
 
   using Cell = char;
   using Cells = std::vector<std::vector<Cell>>;
@@ -84,10 +85,18 @@ public:
     cv::Mat out;
     cv::resize(plot, out, cv::Size(), 2, 2); // 100x100 is a little too small
     cv::imshow("Board State", out);
-    return cv::waitKey(0);
+    return cv::waitKey(200);
   }
 
   void destroyWindow() { cv::destroyAllWindows(); }
+  bool match(std::function<char(int, int)> get_other_at) {
+    for (unsigned int i{0}; i < cells.size(); i++)
+      for (unsigned int j{0}; j < cells.size(); j++)
+        if (cells[i][j] != get_other_at(i, j))
+          return false;
+
+    return true;
+  }
 
 private:
   Cells cells;
