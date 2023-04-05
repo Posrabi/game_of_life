@@ -8,7 +8,7 @@ int main() {
   Board::GodFunction god_fn_0 = [](unsigned int neighbors,
                                    State current_state) {
     if (current_state == LIVE) {
-      if (neighbors >= 2 && neighbors <= 3)
+      if (neighbors == 2 || neighbors == 3)
         return LIVE;
 
       return DEAD;             // greater than 3 die
@@ -36,14 +36,14 @@ int main() {
             << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                      begin)
                    .count()
-            << "[ms]"
+            << " [ms]"
             << "\n";
 
   auto board_optimized_256 = BoardOptimized<256>();
 
   begin = std::chrono::steady_clock::now();
   for (unsigned int i{0}; i < 100; ++i) {
-    board_optimized_256.run(god_fn_0);
+    board_optimized_256.run();
   }
   end = std::chrono::steady_clock::now();
 
@@ -51,14 +51,16 @@ int main() {
             << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                      begin)
                    .count()
-            << "[ms]"
+            << " [ms]"
             << "\n";
+
+  // board_optimized_256.destroyWindow();
 
   if (board_256.match(
           [&](int i, int j) { return board_optimized_256.get_at(i, j); }))
     std::cout << "States matched!\n";
   else
-    std::cout << "States don't match!\n";
+    std::cout << "States did not match!\n";
 
   /*
    ***************************** Step 2 ********************************
@@ -72,20 +74,21 @@ int main() {
   for (unsigned int i{0}; i < 1000; ++i) {
     board_2048.run(god_fn_0);
   }
+
   end = std::chrono::steady_clock::now();
 
   std::cout << "Elapsed: "
             << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                      begin)
                    .count()
-            << "[ms]"
+            << " [ms]"
             << "\n";
 
   auto board_optimized_2048 = BoardOptimized<2048>();
 
   begin = std::chrono::steady_clock::now();
   for (unsigned int i{0}; i < 1000; ++i) {
-    board_optimized_2048.run(god_fn_0);
+    board_optimized_2048.run();
   }
   end = std::chrono::steady_clock::now();
 
@@ -93,8 +96,14 @@ int main() {
             << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                      begin)
                    .count()
-            << "[ms]"
+            << " [ms]"
             << "\n";
+
+  // if (board_2048.match(
+  //         [&](int i, int j) { return board_optimized_2048.get_at(i, j); }))
+  //   std::cout << "States matched!\n";
+  // else
+  //   std::cout << "States did not match!\n";
 
   return 0;
 }

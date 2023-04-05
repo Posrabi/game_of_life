@@ -46,8 +46,8 @@ public:
       row.resize(cells.size());
 
     // Store new state into tmp board
-    for (int i{0}; i < cells.size(); ++i)
-      for (int j{0}; j < cells.size(); ++j)
+    for (int i{0}; i < (int)cells.size(); ++i)
+      for (int j{0}; j < (int)cells.size(); ++j)
         tmp[i][j] = god_fn(countLiveNeighbors(i, j), cells[i][j]);
 
     cells = tmp;
@@ -57,13 +57,13 @@ public:
     unsigned int ret{0};
     for (auto const &[row_off, col_off] : NEIGHBOR_OFFSETS) {
       auto neighbor_r = row + row_off;
-      if (neighbor_r >= cells.size())
+      if (neighbor_r >= (int)cells.size())
         neighbor_r = 0;
       else if (neighbor_r < 0)
         neighbor_r = cells.size() - 1;
 
       auto neighbor_c = col + col_off;
-      if (neighbor_c >= cells.size())
+      if (neighbor_c >= (int)cells.size())
         neighbor_c = 0;
       else if (neighbor_c < 0)
         neighbor_c = cells.size() - 1;
@@ -92,8 +92,9 @@ public:
   bool match(std::function<char(int, int)> get_other_at) {
     for (unsigned int i{0}; i < cells.size(); i++)
       for (unsigned int j{0}; j < cells.size(); j++)
-        if (cells[i][j] != get_other_at(i, j))
+        if (cells[i][j] != get_other_at(i, j)) {
           return false;
+        }
 
     return true;
   }
