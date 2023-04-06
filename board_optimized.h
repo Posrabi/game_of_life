@@ -19,7 +19,7 @@
 template <unsigned int size> class BoardOptimized {
 public:
   /*
-   * Cell data layout 1 byte
+   * Cell data layout, 1 byte
    *
    * 0 0 0    | 0 0 0 0        | 0
    * Not used | neighbor count | state
@@ -27,130 +27,142 @@ public:
   using Cell = char;
   using Cells = Cell[size][size];
 
-  // Pad around the boundaries to prevent branches in countLiveNeighbors
-  // void updatePaddingEdges(Cells &grid) {
-  //   for (unsigned int i{1}; i < size + 1; i++) {
-  //     // Top edge
-  //     grid[0][i] = grid[size][i];
-  //     // Bottom edge
-  //     grid[size + 1][i] = grid[1][i];
-  //     // Left edge
-  //
-  //   // Pad around the boundaries to prevent branches in countLiveNeighbors
-  //     grid[i][0] = grid[i][size];
-  //     // Right edge
-  //     grid[i][size + 1] = grid[i][1];
-  //   }
-
-  //   grid[0][0] = grid[size][size];
-  //   grid[size + 1][size + 1] = grid[1][1];
-  //   grid[0][size + 1] = grid[size][1];
-  //   grid[size + 1][0] = grid[1][size];
-  // }
-
   template <bool is_add> void updateNeighborCount(int i, int j) {
     int off = -2;
     if constexpr (is_add)
       off = 2;
 
-    constexpr unsigned int mod = size - 1;
-    cells[(i + 1) & (mod)][(j + 1) & (mod)] += off;
-    cells[(i + 1) & (mod)][(j - 1) & (mod)] += off;
-    cells[(i - 1) & (mod)][(j + 1) & (mod)] += off;
-    cells[(i - 1) & (mod)][(j - 1) & (mod)] += off;
-    cells[(i + 1) & (mod)][j] += off;
-    cells[(i - 1) & (mod)][j] += off;
-    cells[i][(j + 1) & (mod)] += off;
-    cells[i][(j - 1) & (mod)] += off;
+    constexpr int mod = size - 1;
+    int right_wrap{(j + 1) & mod}, up_wrap{(i - 1) & mod},
+        down_wrap{(i + 1) & mod}, left_wrap{(j - 1) & mod};
+
+    cells[down_wrap][right_wrap] += off;
+    cells[down_wrap][left_wrap] += off;
+    cells[up_wrap][right_wrap] += off;
+    cells[up_wrap][left_wrap] += off;
+    cells[down_wrap][j] += off;
+    cells[up_wrap][j] += off;
+    cells[i][right_wrap] += off;
+    cells[i][left_wrap] += off;
   }
 
   BoardOptimized() {
     std::default_random_engine generator(0);
     std::uniform_real_distribution<double> dist(0.0, 1.0);
 
-    for (unsigned int i{0}; i < (int)size; i++)
-      for (unsigned int j{0}; j < (int)size; j++)
+    for (int i{0}; i < (int)size; i++)
+      for (int j{0}; j < (int)size; j++)
         if (dist(generator) >= 0.5) {
           cells[i][j] |= 0x01;
           updateNeighborCount<true>(i, j);
         }
 
     length = size * size;
-    // updatePaddingEdges(cells);
   }
   ~BoardOptimized() = default;
 
   void run() {
     memcpy(tmp, cells, length);
 
-    Cell *start = &tmp[0][0];
-    Cell *cells_ptr = start;
-    const Cell *end = start + length;
-    long count{0}, diff{0};
-    int i{0}, j{0};
+#pragma omp parallel for collapse(2)
+    for (int i = 0; i < (int)size; ++i)
+      for (int j = 0; j < (int)size; ++j) {
+        if (tmp[i][j] == 0)
+          continue;
 
-    while (cells_ptr < end) {
-      for (; cells_ptr <= end - 16; cells_ptr += 16) {
-        __m128i v0 = _mm_loadu_si128((const __m128i *)cells_ptr);
-        // __m128i v1 = _mm_loadu_si128((const __m128i *)(cells_ptr + 16));
-        // __m128i v2 = _mm_loadu_si128((const __m128i *)(cells_ptr + 32));
-        // __m128i v3 = _mm_loadu_si128((const __m128i *)(cells_ptr + 48));
-        __m128i vcmp0 = _mm_cmpeq_epi32(v0, _mm_setzero_si128());
-        // __m128i vcmp1 = _mm_cmpeq_epi32(v1, _mm_setzero_si128());
-        // __m128i vcmp2 = _mm_cmpeq_epi32(v2, _mm_setzero_si128());
-        // __m128i vcmp3 = _mm_cmpeq_epi32(v3, _mm_setzero_si128());
-        int mask0 = _mm_movemask_epi8(vcmp0);
-        // int mask1 = _mm_movemask_epi8(vcmp1);
-        // int mask2 = _mm_movemask_epi8(vcmp2);
-        // int mask3 = _mm_movemask_epi8(vcmp3);
+        unsigned int count = (tmp[i][j]) >> 1;
+        if (tmp[i][j] & 0x01) {
+          if (count != 2 && count != 3) {
+            cells[i][j] &= ~0x01;
 
-        if (mask0 != 0xffff) {
-          break;
+            constexpr int mod = size - 1;
+            int right_wrap{(j + 1) & mod}, up_wrap{(i - 1) & mod},
+                down_wrap{(i + 1) & mod}, left_wrap{(j - 1) & mod};
+#pragma omp atomic update
+            cells[down_wrap][right_wrap] += -2;
+#pragma omp atomic update
+            cells[down_wrap][left_wrap] += -2;
+#pragma omp atomic update
+            cells[up_wrap][right_wrap] += -2;
+#pragma omp atomic update
+            cells[up_wrap][left_wrap] += -2;
+#pragma omp atomic update
+            cells[down_wrap][j] += -2;
+#pragma omp atomic update
+            cells[up_wrap][j] += -2;
+#pragma omp atomic update
+            cells[i][right_wrap] += -2;
+#pragma omp atomic update
+            cells[i][left_wrap] += -2;
+          }
+        } else if (count == 3) {
+          cells[i][j] |= 0x01;
+
+          constexpr int mod = size - 1;
+          int right_wrap{(j + 1) & mod}, up_wrap{(i - 1) & mod},
+              down_wrap{(i + 1) & mod}, left_wrap{(j - 1) & mod};
+#pragma omp atomic update
+          cells[down_wrap][right_wrap] += 2;
+#pragma omp atomic update
+          cells[down_wrap][left_wrap] += 2;
+#pragma omp atomic update
+          cells[up_wrap][right_wrap] += 2;
+#pragma omp atomic update
+          cells[up_wrap][left_wrap] += 2;
+#pragma omp atomic update
+          cells[down_wrap][j] += 2;
+#pragma omp atomic update
+          cells[up_wrap][j] += 2;
+#pragma omp atomic update
+          cells[i][right_wrap] += 2;
+#pragma omp atomic update
+          cells[i][left_wrap] += 2;
         }
       }
 
-      diff = cells_ptr - start;
-      j = diff & (size - 1), i = diff / size;
+    // Cell *start = &tmp[0][0];
+    // Cell *cells_ptr = start;
+    // const Cell *end = start + length;
+    // long count{0}, diff{0};
+    // int i{0}, j{0};
 
-      count = tmp[i][j] >> 1;
-      if (tmp[i][j] & 0x01) {
-        if (count != 2 && count != 3) {
-          cells[i][j] &= ~0x01;
-          updateNeighborCount<false>(i, j);
-        }
-      } else if (count == 3) {
-        cells[i][j] |= 0x01;
-        updateNeighborCount<true>(i, j);
-      }
+    // while (cells_ptr < end) {
+    //   for (; cells_ptr <= end - 16; cells_ptr += 16) {
+    //     __m128i v0 = _mm_loadu_si128((const __m128i *)cells_ptr);
+    //     // __m128i v1 = _mm_loadu_si128((const __m128i *)(cells_ptr + 16));
+    //     // __m128i v2 = _mm_loadu_si128((const __m128i *)(cells_ptr + 32));
+    //     // __m128i v3 = _mm_loadu_si128((const __m128i *)(cells_ptr + 48));
+    //     __m128i vcmp0 = _mm_cmpeq_epi32(v0, _mm_setzero_si128());
+    //     // __m128i vcmp1 = _mm_cmpeq_epi32(v1, _mm_setzero_si128());
+    //     // __m128i vcmp2 = _mm_cmpeq_epi32(v2, _mm_setzero_si128());
+    //     // __m128i vcmp3 = _mm_cmpeq_epi32(v3, _mm_setzero_si128());
+    //     int mask0 = _mm_movemask_epi8(vcmp0);
+    //     // int mask1 = _mm_movemask_epi8(vcmp1);
+    //     // int mask2 = _mm_movemask_epi8(vcmp2);
+    //     // int mask3 = _mm_movemask_epi8(vcmp3);
 
-      ++cells_ptr;
-    }
-
-    // for (int i{0}; i < (int)size; ++i)
-    //   for (int j{0}; j < (int)size; ++j) {
-    //     if (tmp[i][j] == 0) {
-    //       continue;
-    //     }
-
-    //     auto count = tmp[i][j] >> 1;
-    //     if (tmp[i][j] & 0x01) {
-    //       if (count != 2 && count != 3) {
-    //         cells[i][j] &= ~0x01;
-    //         updateNeighborCount<false>(i, j);
-    //       }
-    //     } else if (count == 3) {
-    //       cells[i][j] |= 0x01;
-    //       updateNeighborCount<true>(i, j);
+    //     if (mask0 != 0xffff) {
+    //       break;
     //     }
     //   }
-  }
 
-  // unsigned int countLiveNeighbors(int row, int col) {
-  //   return cells[row + 1][col + 1] + cells[row + 1][col - 1] +
-  //          cells[row - 1][col + 1] + cells[row - 1][col - 1] +
-  //          cells[row + 1][col] + cells[row - 1][col] + cells[row][col + 1] +
-  //          cells[row][col - 1];
-  // }
+    //   diff = cells_ptr - start;
+    //   j = diff & (size - 1), i = diff / size;
+
+    //   count = (*cells_ptr) >> 1;
+    //   if (*cells_ptr & 0x01) {
+    //     if (count != 2 && count != 3) {
+    //       cells[i][j] &= ~0x01;
+    //       updateNeighborCount<false>(i, j);
+    //     }
+    //   } else if (count == 3) {
+    //     cells[i][j] |= 0x01;
+    //     updateNeighborCount<true>(i, j);
+    //   }
+
+    //   ++cells_ptr;
+    // }
+  }
 
   int print() {
     cv::Mat plot(size, size, CV_8U, 255);
