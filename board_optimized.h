@@ -1,13 +1,11 @@
 #pragma once
 #include <array>
-#include <chrono>
 #include <cstring>
 #include <functional>
-#include <x86intrin.h>
-
 #include <iostream>
+#include <omp.h>
 #include <random>
-#include <vector>
+#include <x86intrin.h>
 
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -27,10 +25,16 @@ public:
   using Cell = char;
   using Cells = Cell[size][size];
 
-  template <bool is_add> void updateNeighborCount(int i, int j) {
+  template <bool is_on> void modifyCell(int i, int j) {
     int off = -2;
-    if constexpr (is_add)
+    if constexpr (is_on) {
       off = 2;
+#pragma omp atomic update
+      cells[i][j] |= 0x01;
+    } else {
+#pragma omp atomic update
+      cells[i][j] &= ~0x01;
+    }
 
     constexpr int mod = size - 1;
     int right_wrap{(j + 1) & mod}, up_wrap{(i - 1) & mod},
@@ -62,8 +66,7 @@ public:
     for (int i{0}; i < (int)size; i++)
       for (int j{0}; j < (int)size; j++)
         if (dist(generator) >= 0.5) {
-          cells[i][j] |= 0x01;
-          updateNeighborCount<true>(i, j);
+          modifyCell<true>(i, j);
         }
   }
   ~BoardOptimized() = default;
@@ -72,21 +75,19 @@ public:
     memcpy(tmp, cells, length);
 
     unsigned count{0};
-#pragma omp parallel for collapse(2) private(count)
-    for (int i = 0; i < size; ++i)
-      for (int j = 0; j < size; ++j) {
+#pragma omp parallel for collapse(2) private(count) schedule(static, chunk_size)
+    for (int i = size - 1; i >= 0; --i)
+      for (int j = size - 1; j >= 0; --j) {
         if (!tmp[i][j]) [[likely]]
           continue;
 
         count = tmp[i][j] >> 1;
         if (tmp[i][j] & 0x01) {
           if (count != 2 && count != 3) {
-            cells[i][j] &= ~0x01;
-            updateNeighborCount<false>(i, j);
+            modifyCell<false>(i, j);
           }
         } else if (count == 3) {
-          cells[i][j] |= 0x01;
-          updateNeighborCount<true>(i, j);
+          modifyCell<true>(i, j);
         }
       }
   }
@@ -112,4 +113,5 @@ private:
   Cells tmp;
 
   static constexpr size_t length = size * size;
+  size_t chunk_size = length / omp_get_max_threads();
 };
