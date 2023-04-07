@@ -15,7 +15,7 @@
 
 #include "board.h"
 
-#define indexToPtr(ptr, i, j, size) *(ptr + j + i * size)
+#define INDEX_TO_PTR(ptr, i, j, size) *(ptr + j + i * size)
 #define CACHE_LINE_SIZE sysconf(_SC_LEVEL1_DCACHE_LINESIZE)
 
 template <int size> class BoardOptimized {
@@ -32,10 +32,10 @@ public:
     if constexpr (is_on) {
       off = 2;
 #pragma omp atomic update
-      indexToPtr(cells, i, j, size) |= 0x01;
+      INDEX_TO_PTR(cells, i, j, size) |= 0x01;
     } else {
 #pragma omp atomic update
-      indexToPtr(cells, i, j, size) &= ~0x01;
+      INDEX_TO_PTR(cells, i, j, size) &= ~0x01;
     }
 
     constexpr int mod = size - 1;
@@ -44,21 +44,21 @@ public:
 
     // Add to the neighbor count of the neighboring cell (bit 1 - 4)
 #pragma omp atomic update
-    indexToPtr(cells, down_wrap, right_wrap, size) += off;
+    INDEX_TO_PTR(cells, down_wrap, right_wrap, size) += off;
 #pragma omp atomic update
-    indexToPtr(cells, down_wrap, left_wrap, size) += off;
+    INDEX_TO_PTR(cells, down_wrap, left_wrap, size) += off;
 #pragma omp atomic update
-    indexToPtr(cells, up_wrap, right_wrap, size) += off;
+    INDEX_TO_PTR(cells, up_wrap, right_wrap, size) += off;
 #pragma omp atomic update
-    indexToPtr(cells, up_wrap, left_wrap, size) += off;
+    INDEX_TO_PTR(cells, up_wrap, left_wrap, size) += off;
 #pragma omp atomic update
-    indexToPtr(cells, down_wrap, j, size) += off;
+    INDEX_TO_PTR(cells, down_wrap, j, size) += off;
 #pragma omp atomic update
-    indexToPtr(cells, up_wrap, j, size) += off;
+    INDEX_TO_PTR(cells, up_wrap, j, size) += off;
 #pragma omp atomic update
-    indexToPtr(cells, i, right_wrap, size) += off;
+    INDEX_TO_PTR(cells, i, right_wrap, size) += off;
 #pragma omp atomic update
-    indexToPtr(cells, i, left_wrap, size) += off;
+    INDEX_TO_PTR(cells, i, left_wrap, size) += off;
   }
 
   BoardOptimized() {
@@ -86,10 +86,10 @@ public:
     unsigned count{0};
     char current;
 #pragma omp parallel for collapse(2) private(count, current)                   \
-    schedule(static, 256)
+    schedule(static, chunk_size)
     for (int i = size - 1; i >= 0; --i)
       for (int j = size - 1; j >= 0; --j) {
-        current = indexToPtr(tmp, i, j, size);
+        current = INDEX_TO_PTR(tmp, i, j, size);
         if (!current) [[likely]]
           continue;
 
@@ -108,7 +108,7 @@ public:
     cv::Mat plot(size, size, CV_8U, 255);
     for (unsigned int i{0}; i < size; i++)
       for (unsigned int j{0}; j < size; j++)
-        if (indexToPtr(cells, i, j, size) & 0x01)
+        if (INDEX_TO_PTR(cells, i, j, size) & 0x01)
           plot.at<char>(i, j) = 0;
 
     cv::Mat out;
@@ -118,11 +118,12 @@ public:
   }
 
   void destroyWindow() { cv::destroyAllWindows(); }
-  char get_at(int i, int j) { return indexToPtr(cells, i, j, size) & 0x01; }
+  char get_at(int i, int j) { return INDEX_TO_PTR(cells, i, j, size) & 0x01; }
 
 private:
   char *cells;
   char *tmp;
 
   static constexpr size_t length = size * size;
+  size_t chunk_size = length / omp_get_max_threads();
 };
