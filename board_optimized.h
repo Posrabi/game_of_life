@@ -36,6 +36,7 @@ public:
     int right_wrap{(j + 1) & mod}, up_wrap{(i - 1) & mod},
         down_wrap{(i + 1) & mod}, left_wrap{(j - 1) & mod};
 
+    // Add to the neighbor count of the neighboring cell (bit 1 - 4)
 #pragma omp atomic update
     cells[down_wrap][right_wrap] += off;
 #pragma omp atomic update

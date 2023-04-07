@@ -8,7 +8,7 @@ You need to have opencv4 installed, then run
 make
 ```
 
-That's it, all you need to do now is run 
+To use the optimzied version, you might need to increase the size of the stack. That's it, all you need to do now is run 
 
 ```bash
 ./main
