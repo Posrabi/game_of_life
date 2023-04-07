@@ -44,8 +44,10 @@ int main() {
   begin = std::chrono::steady_clock::now();
   for (unsigned int i{0}; i < 100; ++i) {
     board_optimized_256.run();
+    // board_optimized_256.print();
   }
   end = std::chrono::steady_clock::now();
+  // board_optimized_256.destroyWindow();
 
   std::cout << "[OPTIMIZED] Elapsed: "
             << std::chrono::duration_cast<std::chrono::milliseconds>(end -
@@ -99,11 +101,11 @@ int main() {
             << " [ms]"
             << "\n";
 
-  // if (board_2048.match(
-  //         [&](int i, int j) { return board_optimized_2048.get_at(i, j); }))
-  //   std::cout << "States matched!\n";
-  // else
-  //   std::cout << "States did not match!\n";
+  //  if (board_2048.match(
+  //          [&](int i, int j) { return board_optimized_2048.get_at(i, j); }))
+  //    std::cout << "States matched!\n";
+  //  else
+  //    std::cout << "States did not match!\n";
 
   return 0;
 }

@@ -16,7 +16,7 @@
 
 #include "board.h"
 
-template <unsigned int size> class BoardOptimized {
+template <int size> class BoardOptimized {
 public:
   /*
    * Cell data layout, 1 byte
@@ -36,13 +36,21 @@ public:
     int right_wrap{(j + 1) & mod}, up_wrap{(i - 1) & mod},
         down_wrap{(i + 1) & mod}, left_wrap{(j - 1) & mod};
 
+#pragma omp atomic update
     cells[down_wrap][right_wrap] += off;
+#pragma omp atomic update
     cells[down_wrap][left_wrap] += off;
+#pragma omp atomic update
     cells[up_wrap][right_wrap] += off;
+#pragma omp atomic update
     cells[up_wrap][left_wrap] += off;
+#pragma omp atomic update
     cells[down_wrap][j] += off;
+#pragma omp atomic update
     cells[up_wrap][j] += off;
+#pragma omp atomic update
     cells[i][right_wrap] += off;
+#pragma omp atomic update
     cells[i][left_wrap] += off;
   }
 
@@ -56,112 +64,30 @@ public:
           cells[i][j] |= 0x01;
           updateNeighborCount<true>(i, j);
         }
-
-    length = size * size;
   }
   ~BoardOptimized() = default;
 
   void run() {
     memcpy(tmp, cells, length);
 
-#pragma omp parallel for collapse(2)
-    for (int i = 0; i < (int)size; ++i)
-      for (int j = 0; j < (int)size; ++j) {
-        if (tmp[i][j] == 0)
+    unsigned count{0};
+#pragma omp parallel for collapse(2) private(count)
+    for (int i = 0; i < size; ++i)
+      for (int j = 0; j < size; ++j) {
+        if (!tmp[i][j]) [[likely]]
           continue;
 
-        unsigned int count = (tmp[i][j]) >> 1;
+        count = tmp[i][j] >> 1;
         if (tmp[i][j] & 0x01) {
           if (count != 2 && count != 3) {
             cells[i][j] &= ~0x01;
-
-            constexpr int mod = size - 1;
-            int right_wrap{(j + 1) & mod}, up_wrap{(i - 1) & mod},
-                down_wrap{(i + 1) & mod}, left_wrap{(j - 1) & mod};
-#pragma omp atomic update
-            cells[down_wrap][right_wrap] += -2;
-#pragma omp atomic update
-            cells[down_wrap][left_wrap] += -2;
-#pragma omp atomic update
-            cells[up_wrap][right_wrap] += -2;
-#pragma omp atomic update
-            cells[up_wrap][left_wrap] += -2;
-#pragma omp atomic update
-            cells[down_wrap][j] += -2;
-#pragma omp atomic update
-            cells[up_wrap][j] += -2;
-#pragma omp atomic update
-            cells[i][right_wrap] += -2;
-#pragma omp atomic update
-            cells[i][left_wrap] += -2;
+            updateNeighborCount<false>(i, j);
           }
         } else if (count == 3) {
           cells[i][j] |= 0x01;
-
-          constexpr int mod = size - 1;
-          int right_wrap{(j + 1) & mod}, up_wrap{(i - 1) & mod},
-              down_wrap{(i + 1) & mod}, left_wrap{(j - 1) & mod};
-#pragma omp atomic update
-          cells[down_wrap][right_wrap] += 2;
-#pragma omp atomic update
-          cells[down_wrap][left_wrap] += 2;
-#pragma omp atomic update
-          cells[up_wrap][right_wrap] += 2;
-#pragma omp atomic update
-          cells[up_wrap][left_wrap] += 2;
-#pragma omp atomic update
-          cells[down_wrap][j] += 2;
-#pragma omp atomic update
-          cells[up_wrap][j] += 2;
-#pragma omp atomic update
-          cells[i][right_wrap] += 2;
-#pragma omp atomic update
-          cells[i][left_wrap] += 2;
+          updateNeighborCount<true>(i, j);
         }
       }
-
-    // Cell *start = &tmp[0][0];
-    // Cell *cells_ptr = start;
-    // const Cell *end = start + length;
-    // long count{0}, diff{0};
-    // int i{0}, j{0};
-
-    // while (cells_ptr < end) {
-    //   for (; cells_ptr <= end - 16; cells_ptr += 16) {
-    //     __m128i v0 = _mm_loadu_si128((const __m128i *)cells_ptr);
-    //     // __m128i v1 = _mm_loadu_si128((const __m128i *)(cells_ptr + 16));
-    //     // __m128i v2 = _mm_loadu_si128((const __m128i *)(cells_ptr + 32));
-    //     // __m128i v3 = _mm_loadu_si128((const __m128i *)(cells_ptr + 48));
-    //     __m128i vcmp0 = _mm_cmpeq_epi32(v0, _mm_setzero_si128());
-    //     // __m128i vcmp1 = _mm_cmpeq_epi32(v1, _mm_setzero_si128());
-    //     // __m128i vcmp2 = _mm_cmpeq_epi32(v2, _mm_setzero_si128());
-    //     // __m128i vcmp3 = _mm_cmpeq_epi32(v3, _mm_setzero_si128());
-    //     int mask0 = _mm_movemask_epi8(vcmp0);
-    //     // int mask1 = _mm_movemask_epi8(vcmp1);
-    //     // int mask2 = _mm_movemask_epi8(vcmp2);
-    //     // int mask3 = _mm_movemask_epi8(vcmp3);
-
-    //     if (mask0 != 0xffff) {
-    //       break;
-    //     }
-    //   }
-
-    //   diff = cells_ptr - start;
-    //   j = diff & (size - 1), i = diff / size;
-
-    //   count = (*cells_ptr) >> 1;
-    //   if (*cells_ptr & 0x01) {
-    //     if (count != 2 && count != 3) {
-    //       cells[i][j] &= ~0x01;
-    //       updateNeighborCount<false>(i, j);
-    //     }
-    //   } else if (count == 3) {
-    //     cells[i][j] |= 0x01;
-    //     updateNeighborCount<true>(i, j);
-    //   }
-
-    //   ++cells_ptr;
-    // }
   }
 
   int print() {
@@ -183,5 +109,6 @@ public:
 private:
   Cells cells;
   Cells tmp;
-  size_t length;
+
+  static constexpr size_t length = size * size;
 };
