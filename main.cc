@@ -70,21 +70,21 @@ int main() {
 
   std::cout << "Iteration beginning, count: 1000, board size 2048x2048\n";
 
-  // auto board_2048 = Board(2048);
+  auto board_2048 = Board(2048);
 
-  // begin = std::chrono::steady_clock::now();
-  // for (unsigned int i{0}; i < 1000; ++i) {
-  //   board_2048.run(god_fn_0);
-  // }
+  begin = std::chrono::steady_clock::now();
+  for (unsigned int i{0}; i < 1000; ++i) {
+    board_2048.run(god_fn_0);
+  }
 
-  // end = std::chrono::steady_clock::now();
+  end = std::chrono::steady_clock::now();
 
-  // std::cout << "Elapsed: "
-  //           << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-  //                                                                    begin)
-  //                  .count()
-  //           << " [ms]"
-  //           << "\n";
+  std::cout << "Elapsed: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                     begin)
+                   .count()
+            << " [ms]"
+            << "\n";
 
   auto board_optimized_2048 = BoardOptimized<2048>();
 
