@@ -40,6 +40,7 @@ int main() {
             << "\n";
 
   auto board_optimized_256 = BoardOptimized<256>();
+  // board_optimized_256.print();
 
   begin = std::chrono::steady_clock::now();
   for (unsigned int i{0}; i < 100; ++i) {
@@ -55,8 +56,6 @@ int main() {
                    .count()
             << " [ms]"
             << "\n";
-
-  // board_optimized_256.destroyWindow();
 
   if (board_256.match(
           [&](int i, int j) { return board_optimized_256.get_at(i, j); }))
